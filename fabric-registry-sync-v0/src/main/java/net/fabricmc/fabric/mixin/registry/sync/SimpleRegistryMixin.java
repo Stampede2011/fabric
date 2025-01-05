@@ -166,14 +166,19 @@ public abstract class SimpleRegistryMixin<T> implements MutableRegistry<T>, Rema
 
 	@Override
 	public void remap(String name, Object2IntMap<Identifier> remoteIndexedEntries, RemapMode mode) throws RemapException {
+		System.out.println("Remap name=" + name + " remoteIndexedEntries=" + remoteIndexedEntries + " mode=" + mode);
+
 		// Throw on invalid conditions.
 		switch (mode) {
 		case AUTHORITATIVE:
+			System.out.println("AUTHORITATIVE hit, breaking!");
 			break;
 		case REMOTE: {
 			List<String> strings = null;
 
 			for (Identifier remoteId : remoteIndexedEntries.keySet()) {
+				System.out.println("REMOTE - remoteId=" + remoteId.toString());
+
 				if (!idToEntry.containsKey(remoteId)) {
 					if (strings == null) {
 						strings = new ArrayList<>();
@@ -200,12 +205,16 @@ public abstract class SimpleRegistryMixin<T> implements MutableRegistry<T>, Rema
 				List<String> strings = new ArrayList<>();
 
 				for (Identifier remoteId : remoteIndexedEntries.keySet()) {
+					System.out.println("EXACT - remoteId=" + remoteId.toString());
+
 					if (!idToEntry.containsKey(remoteId)) {
 						strings.add(" - " + remoteId + " (missing on local)");
 					}
 				}
 
 				for (Identifier localId : getIds()) {
+					System.out.println("EXACT - localId=" + localId.toString());
+
 					if (!remoteIndexedEntries.containsKey(localId)) {
 						strings.add(" - " + localId + " (missing on remote)");
 					}
@@ -231,10 +240,14 @@ public abstract class SimpleRegistryMixin<T> implements MutableRegistry<T>, Rema
 		// vanilla order of IDs before mods, which is crucial for vanilla server
 		// compatibility.
 		if (fabric_prevIndexedEntries == null) {
+			System.out.println("AAA - fabric_prevIndexedEntries=" + fabric_prevIndexedEntries);
+
 			fabric_prevIndexedEntries = new Object2IntOpenHashMap<>();
 			fabric_prevEntries = HashBiMap.create(idToEntry);
 
 			for (T o : this) {
+				System.out.println("AAA - o=" + o.toString());
+
 				fabric_prevIndexedEntries.put(getId(o), getRawId(o));
 			}
 		}
@@ -242,25 +255,41 @@ public abstract class SimpleRegistryMixin<T> implements MutableRegistry<T>, Rema
 		Int2ObjectMap<Identifier> oldIdMap = new Int2ObjectOpenHashMap<>();
 
 		for (T o : this) {
+			System.out.println("AAA 1 - o=" + o.toString());
+
 			oldIdMap.put(getRawId(o), getId(o));
 		}
 
 		// If we're AUTHORITATIVE, we append entries which only exist on the
 		// local side to the new entry list. For REMOTE, we instead drop them.
+		System.out.println("Remap 2! name=" + name + " - mode=" + mode);
+
 		switch (mode) {
 		case AUTHORITATIVE: {
+			System.out.println("AUTHORITATIVE!!");
 			int maxValue = 0;
 
 			Object2IntMap<Identifier> oldRemoteIndexedEntries = remoteIndexedEntries;
+
+			System.out.println("AUTHORITATIVE - oldRemoteIndexedEntries=" + oldRemoteIndexedEntries);
+
 			remoteIndexedEntries = new Object2IntOpenHashMap<>();
 
+			System.out.println("AUTHORITATIVE - remoteIndexedEntries=" + remoteIndexedEntries);
+
+			System.out.println("AUTHORITATIVE - oldRemoteIndexedEntries.keySet()=" + oldRemoteIndexedEntries.keySet());
+
 			for (Identifier id : oldRemoteIndexedEntries.keySet()) {
+				System.out.println("AUTHORITATIVE 2a - id=" + id.toString());
+
 				int v = oldRemoteIndexedEntries.getInt(id);
 				remoteIndexedEntries.put(id, v);
 				if (v > maxValue) maxValue = v;
 			}
 
 			for (Identifier id : getIds()) {
+				System.out.println("AUTHORITATIVE 2b - id=" + id.toString());
+
 				if (!remoteIndexedEntries.containsKey(id)) {
 					FABRIC_LOGGER.warn("Adding " + id + " to saved/remote registry.");
 					remoteIndexedEntries.put(id, ++maxValue);
@@ -273,6 +302,8 @@ public abstract class SimpleRegistryMixin<T> implements MutableRegistry<T>, Rema
 			int maxId = -1;
 
 			for (Identifier id : getIds()) {
+				System.out.println("REMOTE 2 - id=" + id.toString());
+
 				if (!remoteIndexedEntries.containsKey(id)) {
 					if (maxId < 0) {
 						for (int value : remoteIndexedEntries.values()) {
@@ -323,6 +354,8 @@ public abstract class SimpleRegistryMixin<T> implements MutableRegistry<T>, Rema
 		orderedRemoteEntries.sort(Comparator.comparingInt(remoteIndexedEntries::getInt));
 
 		for (Identifier identifier : orderedRemoteEntries) {
+			System.out.println("REMOTE 2 - identifier=" + identifier.toString());
+
 			int id = remoteIndexedEntries.getInt(identifier);
 			RegistryEntry.Reference<T> object = idToEntry.get(identifier);
 
@@ -351,6 +384,8 @@ public abstract class SimpleRegistryMixin<T> implements MutableRegistry<T>, Rema
 
 	@Override
 	public void unmap(String name) throws RemapException {
+		System.out.println("Unmap name=" + name);
+
 		if (fabric_prevIndexedEntries != null) {
 			List<Identifier> addedIds = new ArrayList<>();
 
@@ -373,6 +408,8 @@ public abstract class SimpleRegistryMixin<T> implements MutableRegistry<T>, Rema
 			}
 
 			remap(name, fabric_prevIndexedEntries, RemapMode.AUTHORITATIVE);
+
+			System.out.println("Remapped Done! - name=" + name);
 
 			for (Identifier id : addedIds) {
 				fabric_getAddObjectEvent().invoker().onEntryAdded(entryToRawId.getInt(idToEntry.get(id)), id, get(id));
